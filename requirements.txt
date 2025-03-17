@@ -1,9 +1,10 @@
-fastapi
-uvicorn
-sqlalchemy
-psycopg2-binary
-pydantic
+# fastapi
+# uvicorn
+# sqlalchemy
+# psycopg2-binary
+# pydantic
 
 flask
-flask-binary
-python-dotenv
+psycopg2
+os
+uuid

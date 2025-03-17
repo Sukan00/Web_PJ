@@ -1,64 +1,130 @@
-from database import Base
-from sqlalchemy import Column, Integer, String, ForeignKey, Table
-from sqlalchemy.orm import relationship
+from database import get_db_connection 
 
-# Relation table between Type Report with Report
-report_type_association = Table(
-    "report_type_association",
-    Base.metadata,
-    Column("report_id", Integer, ForeignKey("Report.report_id"), primary_key=True),
-    Column("type_id", Integer, ForeignKey("Type_Report.type_id"), primary_key=True),
-)
+class User:
+    def __init__(self, email, role):
+        self.email = email
+        self.role = role
+    
+    """ ตรวจสอบความถูกต้องของ user และส่งคืน email & role ไปที่ Subclass """
+    @classmethod
+    def authenticate(cls, email, password, role):
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'SELECT user_email, role FROM "user" '
+                    'WHERE user_email = %s AND password = %s AND role = %s',
+                    (email, password, role)
+                )
+                if user_data := cur.fetchone():
+                    if role == "student":
+                        return Student(user_data[0], user_data[1])
+                    return Teacher(user_data[0], user_data[1])
+                return None
+        finally:
+            conn.close()
 
-# User table
-class User(Base):
-    __tablename__ = "User"
+##############################################
+class Student(User):
+    def __init__(self, email, role):
+        super().__init__(email, role)
+        self.student_id = email.split("@")[0]
+        self.projects = []
+    
+    def get_projects(self):
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                # @> คือตัวดำเนินการ "contains" สำหรับ arrays ใน PostgreSQL, ตรวจสอบว่า array ทางซ้ายมี array ทางขวาเป็นสมาชิกไหม
+                cur.execute('SELECT * FROM report WHERE author @> ARRAY[%s]::varchar[]', (self.student_id,)) 
+                self.projects = cur.fetchall()
+                return self.projects
+        finally:
+            conn.close()
 
-    email = Column(String, primary_key=True, index=True)
-    password = Column(String, nullable=False)
-    role = Column(String, nullable=False)
-    reports = relationship("Report", back_populates="owner")
+##############################################
+class Teacher(User):
+    def __init__(self, email, role):
+        super().__init__(email, role)
+        self.projects = []
+    
+    def get_all_projects(self):
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute('SELECT * FROM report')
+                self.projects = cur.fetchall()
+                return self.projects
+        finally:
+            conn.close()
 
-# Report table
-class Report(Base):
-    __tablename__ = "Report"
+##############################################
+class Report:
+    def __init__(self, title, category, user_email, author_ids):
+        self.title = title
+        self.category = category
+        self.user_email = user_email
+        self.author_ids = author_ids
+    
+    def save(self, form_data, pdf_path):  
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                # Check data of advisor
+                cur.execute('SELECT advisor_email FROM advisor WHERE advisor_name = %s', (form_data['name_advisor'],))
+                advisor_result = cur.fetchone()
+                if not advisor_result:
+                    raise ValueError("Advisor not found")
+                advisor_email = advisor_result[0]      
+            
+                # Insert report
+                cur.execute(
+                    '''INSERT INTO report (
+                        title, intro, year, category, org, 
+                        type_org, position, path, user_email, advisor_email, author
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING report_id''',
+                    (
+                        form_data['title'],
+                        form_data['intro'],
+                        form_data['year'],
+                        self.category,
+                        form_data.get('org'),
+                        form_data.get('type_org'),
+                        form_data.get('position'),
+                        pdf_path,
+                        self.user_email,
+                        advisor_email,
+                        self.author_ids
+                    )
+                )
+                report_id = cur.fetchone()[0]
+                
+                # Insert report type
+                report_types = form_data.getlist('report_types')
+                if form_data['other_input']:
+                    report_types[report_types.index('Other')] = form_data['other_input']
+                cur.execute(
+                    'INSERT INTO report_type VALUES (%s,%s)',
+                    (report_id, "{" + ",".join(report_types) + "}")
+                )
+                
+                # Update authors
+                cur.execute(
+                    f'UPDATE author SET report_id = %s WHERE au_id IN ({",".join(["%s"]*len(self.author_ids))})',
+                    [report_id] + self.author_ids
+                )
 
-    report_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    title = Column(String, index=True)
-    intro = Column(String)
-    year = Column(Integer)
-    category = Column(String) # Co-op or Special project
-    org = Column(String)
-    type_org = Column(String)
-    position = Column(String)
-    path = Column(String)
-    creator = Column(String, ForeignKey("User.email"), unique=True)
-    author = Column(String)
-    advisor_email = Column(String, ForeignKey("Advisor.email"), unique=True)
-
-    owner = relationship("User", back_populates="reports")
-    authors = relationship("Author", back_populates="report")
-    advisor = relationship("Advisor", back_populates="reports")
-    types = relationship("Type_Report", secondary=report_type_association, back_populates="reports")
-
-# Type Report table
-class Type_Report(Base):
-    __tablename__ = "Type_Report"
-    type_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String, unique=True, index=True)
-    reports = relationship("Report", secondary=report_type_association, back_populates="types")
-
-# Advisor table
-class Advisor(Base):
-    __tablename__ = "Advisor"
-    email = Column(String, primary_key=True, index=True)
-    name = Column(String)
-    reports = relationship("Report", back_populates="advisor")
-
-# Author table
-class Author(Base):
-    __tablename__ = "Author"
-    au_id = Column(String, primary_key=True, index=True) # Student id
-    name = Column(String)
-    report_id = Column(Integer, ForeignKey("Report.report_id"), unique=True)
-    report = relationship("Report", back_populates="authors")
+                
+                conn.commit()
+                return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+            
+##############################################
+class CoOpReport(Report):
+    def __init__(self, title, user_email, author_ids):
+        super().__init__(title, "co-op", user_email, author_ids)
