@@ -1,9 +1,12 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_from_directory
-import psycopg2, os, uuid
+import os, uuid
 from database import get_db_connection  
 from models import User, Student, Teacher, Report, CoOpReport
+from flask_cors import CORS 
+from Chatbot import generate_response, insert_pdf_data
 
 app = Flask(__name__)
+CORS(app)  
 
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
@@ -45,7 +48,7 @@ def login():
 
                 # test print data                
                 print(f'Email : {session['email']}')
-                print(f'ID : {session['studentId']}')
+                print(f'ID : {session['student_id']}')
                 print(f'Student Name : {session['studentName']}')
                 print(f'Role : {session['role']}')
                 # end test print data
@@ -55,6 +58,7 @@ def login():
         else:
             error = "1"
     return render_template('Login_page.html',error = error)
+
 
 ''' Role is student '''
 @app.route('/hpStudent')
@@ -72,7 +76,7 @@ def hpStudent():
     cur.execute('SELECT report_id FROM author WHERE au_id = %s AND report_id IS NOT NULL', (session['student_id'],))
     check = "already have a project" if cur.fetchone() else "not have a project yet"
     
-    query_getReport = 'SELECT * FROM report'
+    query_getReport = 'SELECT * FROM report ORDER BY year DESC'
     cur.execute(query_getReport)
     result_getReport = cur.fetchall()
     
@@ -83,6 +87,7 @@ def hpStudent():
                          email=session['email'],
                          check=check,
                          projects = result_getReport)
+    
 
 ''' Role is teacher '''
 @app.route('/hpTeacher',methods=['GET'])
@@ -101,6 +106,7 @@ def hpTeacher():
 @app.route('/add_project', methods=['GET'])
 def add_report_form():
     return render_template('AddProject_page.html', studentId=session.get('student_id', ''))
+
 
 @app.route('/add_report', methods=['POST'])
 def add_report():
@@ -131,6 +137,9 @@ def add_report():
 
         # Save report
         if report.save(request.form, pdf_path):
+           
+            insert_pdf_data(request.form['title'], pdf_path)
+            
             return jsonify({
                 "status": "success",
                 "message": "Report added successfully",
@@ -139,6 +148,7 @@ def add_report():
         
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+    
 
 ''' Read detail for ReadProject_page '''   
 @app.route('/read_project/<int:report_id>')
@@ -171,9 +181,27 @@ def read_project(report_id):
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+
 @app.template_filter('basename')
 def basename_filter(path):
     return os.path.basename(path)  # Extracts only the filename
+
+
+''' Chatbot '''
+@app.route('/chat', methods=['POST'])
+def chat():
+    try:
+        question = request.json.get("message")
+        if not question:
+            return jsonify({"error": "No question provided"}), 400
+        
+        # เรียกใช้ generate_response จาก Chatbot.py
+        answer = generate_response(question)
+        
+        return jsonify({"response": answer})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/logout')
 def logout():
@@ -181,5 +209,10 @@ def logout():
     session.pop('role', None)
     return redirect(url_for('/'))
 
+
 if __name__ == '__main__':
     app.run(debug=True)
+    
+    
+
+
