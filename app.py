@@ -207,7 +207,7 @@ def chat():
 def logout():
     session.pop('email', None)
     session.pop('role', None)
-    return redirect(url_for('/'))
+    return redirect(url_for('login'))
 
 
 if __name__ == '__main__':
