@@ -25,6 +25,7 @@
       }
 
       .left {
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -134,10 +135,29 @@
         background-color: #ff9900;
         color: white;
       }
+
+      .logout-btn {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        padding: 10px 20px;
+        background-color: #ff4444;
+        color: white;
+        border-radius: 20px;
+        text-decoration: none;
+        font-size: 16px;
+        transition: background-color 0.3s;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+
+      .logout-btn:hover {
+        background-color: #cc0000;
+      }
     </style>
   </head>
   <body>
     <div class="left">
+      <a href="/logout" class="logout-btn">Logout</a>
       <img
         style="width: 150px; height: auto; margin-bottom: 10px"
         src="static/Img/Logo_Math.png"

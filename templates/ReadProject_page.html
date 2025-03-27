@@ -25,6 +25,7 @@
       }
 
       .left {
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -43,9 +44,11 @@
         width: 100%;
         height: 100%;
       }
+
       .right::-webkit-scrollbar {
         width: 0px;
       }
+
       .right iframe {
         width: 100%;
         height: 100%;
@@ -56,13 +59,33 @@
         font-size: 20px;
         font-weight: 500;
       }
+
       .pdf {
         width: 100%;
+      }
+
+      .logout-btn {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        padding: 10px 20px;
+        background-color: #ff4444;
+        color: white;
+        border-radius: 20px;
+        text-decoration: none;
+        font-size: 16px;
+        transition: background-color 0.3s;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+
+      .logout-btn:hover {
+        background-color: #cc0000;
       }
     </style>
   </head>
   <body>
     <div class="left">
+      <a href="/logout" class="logout-btn">Logout</a>
       <h1 style="font-size: 35px; font-weight: 700; margin-top: -10px">
         {{report[0][2]}}<span id="title"></span>
       </h1>
@@ -110,7 +133,7 @@
       </div>
       {% endif %}
 
-      <p class="details">ผู้จัดทำ :</p>
+      <p class="details">ผู้จัดทำ</p>
       {% for reports in report %}
       <div id="nameAuthor" class="details" style="margin-top: -20px">
         <p>{{reports[13]}}</p>

@@ -49,6 +49,7 @@
       }
 
       .top-form {
+        position: relative;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -97,6 +98,24 @@
         height: 50px;
         border-radius: 60px;
         border: 3px solid #ddd;
+      }
+
+      .logout-btn {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        padding: 10px 20px;
+        background-color: #ff4444;
+        color: white;
+        border-radius: 20px;
+        text-decoration: none;
+        font-size: 16px;
+        transition: background-color 0.3s;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+
+      .logout-btn:hover {
+        background-color: #cc0000;
       }
 
       .btn-cat {
@@ -374,6 +393,7 @@
         />
         <div class="right_bottom">Applied Mathematics KMITL</div>
       </div>
+      <a href="/logout" class="logout-btn">Logout</a>
     </div>
 
     <!-- Search Project Section -->
